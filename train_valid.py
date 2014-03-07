@@ -8,19 +8,19 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.linear_model import LogisticRegression, RidgeClassifier, SGDClassifier, RandomizedLogisticRegression
 from sklearn.naive_bayes import GaussianNB
-from sklearn.tree import DecisionTreeClassifier
 from sklearn.lda import LDA
-from sklearn.qda import QDA
 from sklearn.datasets import load_svmlight_file, dump_svmlight_file
 from sklearn.cross_validation import KFold
 from sklearn.grid_search import ParameterGrid
 from pickle import dump, load
-from util import load_parser, load_scaler, check_options
+from util import load_parser, load_scaler, check_options, print_time
 from multiprocessing import Pool
 import numpy as np
 
 def parallel_cross_validation(Classifier, clf_name, arg_list, X, y, fold=5, thread=4):
     
+    # multi-thread cross validation
+
     print "Run parallel %d-fold CV with %d thread..." %(fold, thread)
     p = Pool(thread)
     all_arg = []
@@ -63,8 +63,11 @@ def cross_validation( (Classifier, clf_name, arg, X, y, fold) ):
     print 'acc = %f' %acc
     return (acc, arg)
 
+
 def parse_grid(grid_str, base=0, param_type=int):
     
+    # parse input string to grid search parameter
+
     r = re.split('[:]', grid_str)
     s = filter(None, r)
     
@@ -93,16 +96,17 @@ def parse_grid(grid_str, base=0, param_type=int):
     
     return p_list
 
+
 def main():
     
     parser = load_parser()
-    parser.add_argument('-f'        , dest='fold'  , type=int, default=3, help='number of fold in cross_validation [default = 3]')
+    parser.add_argument('-f'        , dest='fold'  , type=int, default=3, help='Number of fold in cross_validation [default = 3]')
     parser.add_argument('-th'       , dest='thread', type=int, default=8, help='Number of thread to run in parallel [default = 8]')
-    parser.add_argument('-log2c'    , dest='log2_C'                     , help='Grid search {begin:end:step} for log2_C [default = {0:7} for SVM, {-2:4} for LR]')
-    parser.add_argument('-log2g'    , dest='log2_gamma'                 , help='Grid search {begin:end:step} for log2_gamma [default = {-2:3:2} for SVM]')
-    parser.add_argument('-log2r'    , dest='log2_coef0'                 , help='Grid search {begin:end:step} for log2_coef0 [default = {-2:3:2} for SVM]')
-    parser.add_argument('-log2lr'   , dest='log2_lr'                    , help='Grid search {begin:end:step} for log2_learning_rate [default = {-2:3:2}]')
-    parser.add_argument('-log2a'    , dest='log2_alpha'                 , help='Grid search {begin:end:step} for log2_alpha [default = {-3:4:1}]')
+    parser.add_argument('-log2c'    , dest='log2_C'                     , help='Grid search {begin:end:step} for log2(C)')
+    parser.add_argument('-log2g'    , dest='log2_gamma'                 , help='Grid search {begin:end:step} for log2(gamma)')
+    parser.add_argument('-log2r'    , dest='log2_coef0'                 , help='Grid search {begin:end:step} for log2(coef0)')
+    parser.add_argument('-log2lr'   , dest='log2_lr'                    , help='Grid search {begin:end:step} for log2(learning_rate)')
+    parser.add_argument('-log2a'    , dest='log2_alpha'                 , help='Grid search {begin:end:step} for log2(alpha)')
     opts = parser.parse_args(sys.argv[1:])  
 
     # pre-check options before loading data
@@ -319,38 +323,34 @@ def main():
                     for i in range(-5, 3):
                         alpha_list.append( 2**i )
             
-            if( opts.learning_rate != None ):
-                lr_list = parse_grid(opts.learning_rate, 0, float)
-            else:
-                if( opts.log2_lr != None ):
-                    lr_list = parse_grid(opts.log2_lr, 2)
-                else:
-                    # default = {0.25, 0.5, 1, 2}
-                    lr_list = []
-                    for i in range(-2, 3):
-                        lr_list.append( 2**i )
-            
             loss_list = []
-            loss_list.append('hinge')
-            loss_list.append('log')
-            loss_list.append('modified_huber')
-            loss_list.append('squared_hinge')
-            loss_list.append('perceptron')
-            loss_list.append('squared_loss')
-            loss_list.append('huber')
-            loss_list.append('epsilon_insensitive')
-            loss_list.append('squared_epsilon_insensitive')
+            if( opts.loss == None ):
+                loss_list.append('hinge')
+                loss_list.append('log')
+                loss_list.append('modified_huber')
+                loss_list.append('squared_hinge')
+                loss_list.append('perceptron')
+                loss_list.append('squared_loss')
+                loss_list.append('huber')
+                loss_list.append('epsilon_insensitive')
+                loss_list.append('squared_epsilon_insensitive')
+            else:
+                loss_list.append(opts.loss)
             
             penalty_list = []
-            penalty_list.append('l2')
-            penalty_list.append('l1')
-            penalty_list.append('elasticnet')
+            if( opts.penalty == None ):
+                penalty_list.append('l2')
+                penalty_list.append('l1')
+                penalty_list.append('elasticnet')
+            else:
+                penalty_list.append(opts.penalty)
+
             
-            arg_list = list( ParameterGrid( {'alpha': alpha_list, 'learning_rate': lr_list, 'loss':loss_list, 'penalty':penalty_list} ) )
+            arg_list = list( ParameterGrid( {'alpha': alpha_list, 'loss':loss_list, 'penalty':penalty_list} ) )
             (acc_max, arg_best) = parallel_cross_validation(SGDClassifier, 'Linear-SGD', arg_list, x_train, y_train, opts.fold, opts.thread)
             
             print "#####################################################################################"
-            print "max_acc = %f --- alpha = %f, learning_rate = %f, loss = %s, penalty = %s" %(acc_max, arg_best['alpha'], arg_best['learning_rate'], arg_best['loss'], arg_best['penalty'])
+            print "max_acc = %f --- alpha = %f, loss = %s, penalty = %s" %(acc_max, arg_best['alpha'], arg_best['loss'], arg_best['penalty'])
             print "#####################################################################################"
 
 ############################################################
@@ -451,13 +451,14 @@ def main():
 ##                          KNN                           ##
 ############################################################
         elif opts.model == 'KNN':
-            ################## TODO 
-            nn_list = []
+            
             if( opts.n_neighbors != None ):
                 nn_list = parse_grid(opts.n_neighbors, 0)
+            else:
+                # default = {5, 10, 15, 20, 25}
+                nn_list = []
                 for i in range(5):
                     nn_list.append(5 + 10 * i)
-            else:
             
             p_list = []
             if( opts.degree == None ):
@@ -482,7 +483,9 @@ def main():
             print "#####################################################################################"
 
 
-    #   Logistic Regression
+############################################################
+##                  Logistic Regression                   ##
+############################################################
         elif opts.model == 'LR':
 
             penalty_list = []
@@ -492,42 +495,46 @@ def main():
             else:
                 penalty_list.append(opts.penalty)
             
-            c_list = []
             if( opts.C != None ):
-                c_list.append(opts.C)
+                c_list = parse_grid(opts.C, 0, float)
             else:
-                if( opts.log2_C == None ): # default grid search
-                    for i in range(-2, 5):
-                        c_list.append( 2**i )
+                if( opts.log2_C != None ):
+                    c_list = parse_grid(opts.log2_C, 2) # base = 2
                 else:
-                    c_list = parseGrid(opts.log2_C, 2, 1) # base = 2, default step = 1
+                    # default = {1, 2, 4, 8, 16, 32, 64, 128}
+                    c_list = []
+                    for i in range(0, 8):
+                        c_list.append( 2**i )
 
-            arg_list = list( ParameterGrid( {'penalty': penalty_list, 'C': c_list} ) )
+            arg_list_pre = list( ParameterGrid( {'penalty': penalty_list, 'C': c_list} ) )
         
-            arg_list_r = []
-            for arg in arg_list:
+            arg_list = []
+            for arg in arg_list_pre:
                 if(arg['penalty'] == 'l2'):
                     arg['dual'] = True
-                arg_list_r.append(arg)
+                arg_list.append(arg)
 
-            (acc_max, arg_best) = parallel_cross_validation(LogisticRegression, 'Logistic Regression', arg_list_r, x_train, y_train, opts.fold, opts.thread)
+            (acc_max, arg_best) = parallel_cross_validation(LogisticRegression, 'Logistic Regression', arg_list, x_train, y_train, opts.fold, opts.thread)
 
             print "#####################################################################################"
             print "max_acc = %f --- C = %f, penalty = %s" %(acc_max, arg_best['C'], arg_best['penalty'])
             print "#####################################################################################"
 
-    #   Ridge Regression
+############################################################
+##                    Ridge Regression                    ##
+############################################################
         elif opts.model == 'RIDGE':
 
-            alpha_list = []
             if( opts.alpha != None ):
-                alpha_list.append(opts.alpha)
+                alpha_list = parse_grid(opts.alpha, 0, float)
             else:
-                if( opts.log2_alpha == None ): # default grid search
-                    for i in range(-3, 4):
-                        alpha_list.append( 2**i )
+                if( opts.log2_alpha != None ):
+                    alpha_list = parse_grid(opts.log2_alpha, 2) # base = 2
                 else:
-                    alpha_list = parseGrid(opts.log2_alpha, 2, 1) # base = 2, default step = 1
+                    # default = {0.031325, 0.0625, 0.125, 0.25, 0.5, 1, 2, 4}
+                    alpha_list = []
+                    for i in range(-5, 3):
+                        alpha_list.append( 2**i )
 
             arg_list = list( ParameterGrid( {'alpha': alpha_list} ) )
         
@@ -538,19 +545,30 @@ def main():
             print "#####################################################################################"
 
 
+############################################################
+##                 Gaussian Naive Bayes                   ##
+############################################################
         elif opts.model == 'GNB':
 
             print 'Run Gaussian Naive Bayes (%d-fold CV)' %(opts.fold)
             (acc, arg) = cross_validation( (GaussianNB, 'GNB', {}, x_train, y_train, opts.fold) )
 
-            print 'acc = %f' % acc
+            print "#####################################################################################"
+            print 'max acc = %f' % acc
+            print "#####################################################################################"
         
+
+############################################################
+##             Linear Discriminant Analysis               ##
+############################################################
         elif opts.model == 'LDA':
             
             print 'Run Linear Discriminant Analysis (%d-fold CV)' %(opts.fold)
             (acc, arg) = cross_validation( (LDA, 'LNA', {}, x_train, y_train, opts.fold) )
 
+            print "#####################################################################################"
             print "max_acc = %f " %(acc)
+            print "#####################################################################################"
 
         else:
             sys.stderr.write('Error: invalid model %s\n' %opts.model)
@@ -559,9 +577,9 @@ def main():
 
 
 
-
 if __name__ == "__main__":
     ts = time.time()
     main()
     te = time.time()
-    print "Elapsed time is %f sec." %(te - ts)
+    print_time(ts, te)
+    
