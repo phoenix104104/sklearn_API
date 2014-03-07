@@ -6,7 +6,7 @@ from pickle import load, dump
 ####################    SUPPORT MODEL and KERNEL    ####################
 models = ('SVM', 'LINEARSVM', 'RF', 'KNN', 'LR', 'ADABOOST', 'GNB', 'LDA', 'GB', 'RIDGE', 'SGD')
 kernels = ('linear', 'poly', 'rbf', 'sigmoid')
-base_estimators = ('DT', 'SVM', 'SGD')
+base_estimators = ('DT', 'SVM', 'SGD', 'SGD-HUBER', 'SGD-LOG')
 ########################################################################
 
 def load_parser():
@@ -24,7 +24,7 @@ def load_parser():
     parser.add_argument('-ne'   , dest='n_estimators'                   , help='number of tree/estimators in GNB/Adaboost/RF [default = grid search]')
     parser.add_argument('-nn'   , dest='n_neighbors'                    , help='number of neighbors in KNN[default = grid search]')
     parser.add_argument('-lr'   , dest='learning_rate'                  , help='learning rate for AdaBoost/GNB [default = grid search]')
-    parser.add_argument('-be'   , dest='base_estimator', default="DT"   , help='Base estimator in Adaboost (choice: DT, SVM, SGD) [default = Decision Tree]')
+    parser.add_argument('-be'   , dest='base_estimator', default="DT"   , help='Base estimator in Adaboost (choice: DT, SVM, SGD, SGD-HUBER, SGD-LOG) [default = DT]')
     parser.add_argument('-p'    , dest='penalty'                        , help='penalty function used in linearSVC/LR (choice: l2, l1, elasticnet[valid in SGD]) [default = grid search]')
     parser.add_argument('-l'    , dest='loss'                           , help='loss function used in linearSVC (choice: l2, l1, [following valid in SGD only], hinge, log, modified_huber, squared_hinge, perceptron, squared_loss, huber, epsilon_insensitive, squared_epsilon_insensitive) [default = grid search]')
     parser.add_argument('-a'    , dest='alpha'                          , help='alpha in SGD/Ridge [default = grid search]')

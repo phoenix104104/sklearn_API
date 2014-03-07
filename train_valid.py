@@ -100,13 +100,13 @@ def parse_grid(grid_str, base=0, param_type=int):
 def main():
     
     parser = load_parser()
-    parser.add_argument('-f'        , dest='fold'  , type=int, default=3, help='Number of fold in cross_validation [default = 3]')
-    parser.add_argument('-th'       , dest='thread', type=int, default=8, help='Number of thread to run in parallel [default = 8]')
-    parser.add_argument('-log2c'    , dest='log2_C'                     , help='Grid search {begin:end:step} for log2(C)')
-    parser.add_argument('-log2g'    , dest='log2_gamma'                 , help='Grid search {begin:end:step} for log2(gamma)')
-    parser.add_argument('-log2r'    , dest='log2_coef0'                 , help='Grid search {begin:end:step} for log2(coef0)')
-    parser.add_argument('-log2lr'   , dest='log2_lr'                    , help='Grid search {begin:end:step} for log2(learning_rate)')
-    parser.add_argument('-log2a'    , dest='log2_alpha'                 , help='Grid search {begin:end:step} for log2(alpha)')
+    parser.add_argument('-f' , '--fold'  , dest='fold'  , type=int, default=3, help='Number of fold in cross_validation [default = 3]')
+    parser.add_argument('-th', '--thread', dest='thread', type=int, default=8, help='Number of thread to run in parallel [default = 8]')
+    parser.add_argument('-log2c'         , dest='log2_C'                     , help='Grid search {begin:end:step} for log2(C)')
+    parser.add_argument('-log2g'         , dest='log2_gamma'                 , help='Grid search {begin:end:step} for log2(gamma)')
+    parser.add_argument('-log2r'         , dest='log2_coef0'                 , help='Grid search {begin:end:step} for log2(coef0)')
+    parser.add_argument('-log2lr'        , dest='log2_lr'                    , help='Grid search {begin:end:step} for log2(learning_rate)')
+    parser.add_argument('-log2a'         , dest='log2_alpha'                 , help='Grid search {begin:end:step} for log2(alpha)')
     opts = parser.parse_args(sys.argv[1:])  
 
     # pre-check options before loading data
@@ -132,7 +132,7 @@ def main():
         else:
             print "Error! Unknown normalization method (%d)!" %opts.normalized
             print "Choice: 1 for [-1, 1], 2 for [0, 1], 3 for standard normalization"
-            traceback.exc()
+            traceback.print_stack()
             sys.exit(1)
 
         scaler = load_scaler(scaler_filename, x_train, opts.normalized)
@@ -377,12 +377,23 @@ def main():
 ##                        AdaBoost                        ##
 ############################################################
         elif opts.model == 'ADABOOST':
-            if( opts.base_estimator == None or opts.base_estimator == 'DT' ) :
+            be_DT        = DecisionTreeClassifier()
+            be_SVC       = SVC(probability=True)
+            be_SGD_huber = SGDClassifier(loss='modified_huber')
+            be_SGD_log   = SGDClassifier(loss='log')
+
+            if( opts.base_estimator == None ):
+                be = [ be_DT, be_SVC, be_SGD_huber, be_SGD_log ] 
+            elif( opts.base_estimator == 'DT' ):
                 be = [ DecisionTreeClassifier() ]
             elif( opts.base_estimator == 'SVM' ):
                 be = [ SVC(probability=True) ]
             elif( opts.base_estimator == 'SGD' ):
-                be = [ SGDClassifier(loss='modified_huber'), SGDClassifier(loss='log') ]
+                be = [ SGDClassifier(loss='modified_huber') , SGDClassifier(loss='log') ]
+            elif( opts.base_estimator == 'SGD-HUBER' ):
+                be = [ SGDClassifier(loss='modified_huber') ]
+            elif( opts.base_estimator == 'SGD-LOG' ):
+                be = [ SGDClassifier(loss='log') ]
             else:
                 print "Unkinown base estimator %s !" %opts.base_estimator
                 traceback.print_stack()
