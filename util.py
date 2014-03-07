@@ -3,10 +3,12 @@ import sys, os, argparse, time, traceback
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from pickle import load, dump
 
+####################    SUPPORT MODEL and KERNEL    ####################
 models = ('SVM', 'LINEARSVM', 'RF', 'KNN', 'LR', 'ADABOOST', 'GNB', 'LDA', 'GB', 'RIDGE', 'SGD')
 kernels = ('linear', 'poly', 'rbf', 'sigmoid')
+########################################################################
 
-def LoadParser():
+def load_parser():
     
     # Set up parameters
     parser = argparse.ArgumentParser()
@@ -30,7 +32,8 @@ def LoadParser():
     
     return parser
 
-def CheckOpts(opts):
+
+def check_options(opts):
 
     # check model
     if( opts.model not in models ):
@@ -48,7 +51,9 @@ def CheckOpts(opts):
             sys.exit(1)
 
 
-def LoadScaler(scaler_fileName, X, method=1):
+def load_scaler(scaler_fileName, X, method=1):
+    
+    # load scaler if existed
     try:
         with open(scaler_fileName, 'r') as iFile:
             print "Loading " + scaler_fileName + " ..."
@@ -76,29 +81,12 @@ def LoadScaler(scaler_fileName, X, method=1):
     return scaler
 
 
-def BuildParameterGrid( argListDict, arg={} ):
-
-    if len(argListDict) == 0 :
-        return [arg]
-    else:
-        
-        keys = argListDict.keys()
-        argList = argListDict[ keys[0] ]
-        
-        grid = []
-
-        smallDict = argListDict.copy()
-        del smallDict[ keys[0] ]
-
-        for param in argList:
-            arg[ keys[0] ] = param
-            arg_next = arg.copy()
-            grid += buildParameterGrid(smallDict, arg_next)
-
-        return grid
-
-
 def print_time(ts, te):
+
+    if( te < ts ):
+        # swap if inputs are inverted
+        ts, te = te, ts
+
     t = te - ts
     
     second = t % 60
