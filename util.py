@@ -96,3 +96,26 @@ def BuildParameterGrid( argListDict, arg={} ):
             grid += buildParameterGrid(smallDict, arg_next)
 
         return grid
+
+
+def print_time(ts, te):
+    t = te - ts
+    
+    second = t % 60
+    minute = int(t/60)
+    if( minute > 60 ):
+        hour = round(minute/60)
+        minute = minute % 60
+    else:
+        hour = 0
+
+    if( hour > 24 ):
+        day = round(hour/24)
+        hour = hour % 24
+    else:
+        day = 0
+
+    print "Elapsed time is %f secs (%d Day, %d Hour, %d Min, %f Sec)" %(t, day, hour, minute, second)
+
+    return t
+

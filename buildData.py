@@ -1,48 +1,71 @@
 #!/usr/bin/python
 
-import sys, os
-from optparse import OptionParser
+import sys, os, argparse, time
+from util import print_time
 
-def readfeature(filename):
-    feature = open(filename,"r").read().split()
+def read_feature(file_name):
+    feature = open(file_name, "r").read().split()
     return feature
 
-def writeEntry(label,feature,output):
-    output.write(label.__str__())
+def feature2svmformat(label, feature):
+    
+    out = label.__str__()
     for index, value in enumerate(feature):
         if value != 0:
-            output.write(" " + (index+1).__str__() + ":" + value)
-    output.write("\n")
+            out += (" " + (index+1).__str__() + ":" + value)
 
-def merge_data(fout, data, input_dir, file_ext):
-    current_dir = os.getcwd()
-    os.chdir(input_dir)
+    out += "\n"
+    return out
+
+def merge_data(data_list, input_dir_path, file_ext):
+    curr_dir = os.getcwd()
+    os.chdir(input_dir_path)
+    print "Read feature %s at %s ..." %(file_ext, input_dir_path)
+
+    out = ""
+    N = len(data_list)
     i = 0
-    for label, filename in data:
-        feature = readfeature(filename+'.'+file_ext)
-        writeEntry(label, feature, fout)
+    sys.stdout.write("000%")
+    for label, file_name in data_list:
+        feature = read_feature(file_name + '.' + file_ext)
+        out += feature2svmformat(label, feature)
+        
         i += 1
-        if(i % 1000 == 0):
-            sys.stderr.write('.') 
-    sys.stderr.write('\n')
-    os.chdir(current_dir)
+        percent = round(i/float(N)*100)
+        sys.stdout.write("\r%03d%%" %percent)
+
+    sys.stdout.write("\r100%\n")
+    os.chdir(curr_dir)
+    return out
 
 
 def main():
-    parser = OptionParser()
-    parser.add_option("-l",dest="data_list",help="Specify data list")
-    parser.add_option("-i",dest="input_dir",help="Specify input directory")
-    parser.add_option("-o",dest="output_file", help="Specify output file")
-    parser.add_option("-e","--file-ext",dest="file_ext",help="Specify input file extension name",default='vlad')
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-l", "--list"       , dest="data_list_name"  , required=True, help="Specify data list (list format: label file_name)")
+    parser.add_argument("-i", "--input-dir"  , dest="input_dir"       , required=True, help="Specify input directory path")
+    parser.add_argument("-o", "--output-file", dest="output_file_name", required=True, help="Specify output file name")
+    parser.add_argument("-e", "--file-ext"   , dest="file_ext"        , required=True, help="Specify input file extension name")
     
-    (options,args) = parser.parse_args(sys.argv[1:])
+    opts = parser.parse_args(sys.argv[1:])
 
-    fout = open(options.output_file,"w")
-    with open(options.data_list) as f:
-        data = [tuple(line.split()) for line in f]
-    merge_data(fout, data, options.input_dir, options.file_ext)
-    fout.close()
+    with open(opts.data_list_name) as f:
+        print "Load %s ..." %opts.data_list_name
+        data_list = [tuple(line.split()) for line in f]
+    
+    output_data = merge_data(data_list, opts.input_dir, opts.file_ext)
+    with open(opts.output_file_name, "w") as f:
+        print "Saving %s ..." %opts.output_file_name
+        f.write(output_data)
+
     sys.stdout.write("finished!\n")
 
+
+
 if __name__ == "__main__":
+    ts = time.time()
     main()
+    te = time.time()
+
+    print_time(ts, te)
+
+
