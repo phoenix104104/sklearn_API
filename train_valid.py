@@ -63,7 +63,7 @@ def cross_validation( (Classifier, clf_name, arg, X, y, fold) ):
     print 'acc = %f' %acc
     return (acc, arg)
 
-def parse_grid(grid_str, base=0, default_step=1, param_type=int):
+def parse_grid(grid_str, base=0, param_type=int):
     
     r = re.split('[:]', grid_str)
     s = filter(None, r)
@@ -83,7 +83,7 @@ def parse_grid(grid_str, base=0, default_step=1, param_type=int):
         if( len(s) == 3 ):
             step = int(s[2])
         else:
-            step = default_step
+            step = 1
 
         for i in range(start, end, step):
             if( base == 0 ):
@@ -157,10 +157,10 @@ def main():
             
             # parameter C
             if( opts.C != None ):
-                c_list = parse_grid(opts.C, 0, 1, float)
+                c_list = parse_grid(opts.C, 0, float)
             else:
                 if( opts.log2_C != None ):
-                    c_list = parse_grid(opts.log2_C, 2, 1) # base = 2, step = 1
+                    c_list = parse_grid(opts.log2_C, 2) # base = 2
                 else:
                     # default = {1, 2, 4, 8, 16, 32, 64, 128}
                     c_list = []
@@ -169,10 +169,10 @@ def main():
             
             # parameter gamma
             if( opts.gamma != None ):
-                gamma_list = parse_grid(opts.gamma, 0, 1, float)
+                gamma_list = parse_grid(opts.gamma, 0, float)
             else:
                 if( opts.log2_gamma != None ):
-                    gamma_list = parse_grid(opts.log2_gamma, 2, 2) # base = 2, step = 2
+                    gamma_list = parse_grid(opts.log2_gamma, 2) # base = 2
                 else:
                     # default = {0.0625, 0.25, 1, 4}
                     gamma_list = []
@@ -198,10 +198,10 @@ def main():
             elif( opts.kernel == 'poly' ):
 
                 if( opts.coef0 != None ):
-                    coef0_list = parse_grid(opts.coef0, 0, 1, float)
+                    coef0_list = parse_grid(opts.coef0, 0, float)
                 else:
                     if( opts.log2_coef0 != None ):
-                        coef0_list = parse_grid(opts.log2_coef0, 2, 1) # base = 2, step = 1
+                        coef0_list = parse_grid(opts.log2_coef0, 2) # base = 2
                     else:
                         # default = {0.0625, 0.25, 1, 4}
                         coef0_list = []
@@ -209,7 +209,7 @@ def main():
                             coef0_list.append( 2**i )
                 
                 if( opts.degree != None ):
-                    degree_list = parse_grid(opts.degree, 0, 1)
+                    degree_list = parse_grid(opts.degree, 0)
                 else:
                     # default = {1, 2, 3, 4}
                     degree_list = []
@@ -230,10 +230,10 @@ def main():
             elif( opts.kernel == 'sigmoid' ):
                  
                 if( opts.coef0 != None ):
-                    coef0_list = parse_grid(opts.coef0, 0, 1, float)
+                    coef0_list = parse_grid(opts.coef0, 0, float)
                 else:
                     if( opts.log2_coef0 != None ):
-                        coef0_list = parse_grid(opts.log2_coef0, 2, 2) # base = 1, step = 1
+                        coef0_list = parse_grid(opts.log2_coef0, 2) # base = 2
                     else:
                         # default = {0.0625, 0.25, 1, 4}
                         coef0_list = []
@@ -250,10 +250,12 @@ def main():
         
             else:
                 print "Error! Unknown kernel %s!" %opts.kernel
-                traceback.print_exc()
+                traceback.print_stack()
                 sys.exit(1)
 
-    #   SVC linear
+############################################################
+##                     linear-SVM                         ##
+############################################################
         elif opts.model == 'LINEARSVM':
             
             penalty_list = []
@@ -270,21 +272,22 @@ def main():
             else:
                 loss_list.append( opts.loss )
 
-            c_list = []
+            # parameter C
             if( opts.C != None ):
-                c_list.append(opts.C)
+                c_list = parse_grid(opts.C, 0, float)
             else:
-                if( opts.log2_C == None ): # default grid search
-                    for i in range(0, 7):
-                        c_list.append( 2**i )
+                if( opts.log2_C != None ):
+                    c_list = parse_grid(opts.log2_C, 2) # base = 2
                 else:
-                    c_list = parseGrid(opts.log2_C, 2, 1) # base = 2, default step = 1
-        
-            arg_list = list( ParameterGrid( {'penalty': penalty_list, 'loss': loss_list, 'C': c_list} ) )
+                    # default = {1, 2, 4, 8, 16, 32, 64, 128}
+                    c_list = []
+                    for i in range(0, 8):
+                        c_list.append( 2**i )
+            
+            arg_list_pre = list( ParameterGrid( {'penalty': penalty_list, 'loss': loss_list, 'C': c_list} ) )
 
-            acc_max = -1
-            arg_list_r = []
-            for arg in arg_list:
+            arg_list = []
+            for arg in arg_list_pre:
                 if( arg['penalty'] == 'l1' and arg['loss'] == 'l1' ):
                     # not support
                     continue
@@ -292,56 +295,41 @@ def main():
                 if( arg['penalty'] == 'l1' ):
                     arg['dual'] = False
 
-                arg_list_r.append(arg)
+                arg_list.append(arg)
 
-            (acc_max, arg_best) = parallel_cross_validation(LinearSVC, 'Linear-SVM', arg_list_r, x_train, y_train, opts.fold, opts.thread)
+            (acc_max, arg_best) = parallel_cross_validation(LinearSVC, 'Linear-SVM', arg_list, x_train, y_train, opts.fold, opts.thread)
             
             print "#####################################################################################"
             print "max_acc = %f --- C = %f, penalty = %s, loss = %s" %(acc_max, arg_best['C'], arg_best['penalty'], arg_best['loss'])
             print "#####################################################################################"
-            '''
-            # Use SGD with hinge loss function to replace linearSVM
-            alpha_list = []
-            if( opts.alpha != None ):
-                alpha_list.append(opts.alpha)
-            else:
-                if( opts.log2_alpha == None ): # default grid search
-                    for i in range(-5, 3):
-                        alpha_list.append( 2**i )
-                else:
-                    alpha_list = parseGrid(opts.log2_alpha, 2, 1) # base = 2, default step = 1
-
-            loss_list = []
-            loss_list.append('hinge')
-            
-            penalty_list = []
-            if( opts.penalty == None ):
-                penalty_list.append('l2')
-                penalty_list.append('l1')
-                penalty_list.append('elasticnet')
-            else:
-                penalty_list.append(opts.penalty)
-            
-            arg_list = list( ParameterGrid( {'alpha': alpha_list, 'loss':loss_list, 'penalty':penalty_list} ) )
-            (acc_max, arg_best) = parallel_cross_validation(SGDClassifier, 'Linear-SVM', arg_list, x_train, y_train, opts.fold, opts.thread)
-            
-            print "#####################################################################################"
-            print "max_acc = %f --- alpha = %f, penalty = %s" %(acc_max, arg_best['alpha'], arg_best['penalty'])
-            print "#####################################################################################"
-            '''
-    # linear SGD
+    
+############################################################
+##                Linear model with SGD                   ##
+############################################################
         elif opts.model == 'SGD':
 
-            alpha_list = []
             if( opts.alpha != None ):
-                alpha_list.append(opts.alpha)
+                alpha_list = parse_grid(opts.alpha, 0, float)
             else:
-                if( opts.log2_alpha == None ): # default grid search
+                if( opts.log2_alpha != None ):
+                    alpha_list = parse_grid(opts.log2_alpha, 2) # base = 2
+                else:
+                    # default = {0.031325, 0.0625, 0.125, 0.25, 0.5, 1, 2, 4}
+                    alpha_list = []
                     for i in range(-5, 3):
                         alpha_list.append( 2**i )
+            
+            if( opts.learning_rate != None ):
+                lr_list = parse_grid(opts.learning_rate, 0, float)
+            else:
+                if( opts.log2_lr != None ):
+                    lr_list = parse_grid(opts.log2_lr, 2)
                 else:
-                    alpha_list = parseGrid(opts.log2_alpha, 2, 1) # base = 2, default step = 1
-
+                    # default = {0.25, 0.5, 1, 2}
+                    lr_list = []
+                    for i in range(-2, 3):
+                        lr_list.append( 2**i )
+            
             loss_list = []
             loss_list.append('hinge')
             loss_list.append('log')
@@ -358,22 +346,24 @@ def main():
             penalty_list.append('l1')
             penalty_list.append('elasticnet')
             
-            arg_list = list( ParameterGrid( {'alpha': alpha_list, 'loss':loss_list, 'penalty':penalty_list} ) )
+            arg_list = list( ParameterGrid( {'alpha': alpha_list, 'learning_rate': lr_list, 'loss':loss_list, 'penalty':penalty_list} ) )
             (acc_max, arg_best) = parallel_cross_validation(SGDClassifier, 'Linear-SGD', arg_list, x_train, y_train, opts.fold, opts.thread)
             
             print "#####################################################################################"
-            print "max_acc = %f --- alpha = %f, loss = %s, penalty = %s" %(acc_max, arg_best['alpha'], arg_best['loss'], arg_best['penalty'])
+            print "max_acc = %f --- alpha = %f, learning_rate = %f, loss = %s, penalty = %s" %(acc_max, arg_best['alpha'], arg_best['learning_rate'], arg_best['loss'], arg_best['penalty'])
             print "#####################################################################################"
 
-    #   RandomForest
+############################################################
+##                     Random Forest                      ##
+############################################################
         elif opts.model == 'RF':
-            arg = {'n_jobs':10}
-            ne_list = []
-            if( opts.n_estimators == None ):
+            if( opts.n_estimators != None ):
+                ne_list = parse_grid(opts.n_estimators, 0)
+            else:
+                # default = {50, 100, 150, 200, 250, 300}
+                ne_list = []
                 for i in range(5, 31, 5):
                     ne_list.append( 10*i )
-            else:
-                ne_list = parseGrid(opts.n_estimators, 0, 10)
             
             arg_list = list( ParameterGrid( {'n_estimators': ne_list} ) )
             (acc_max, arg_best) = parallel_cross_validation(RandomForestClassifier, 'Random Forest', arg_list, x_train, y_train, opts.fold, opts.thread)
@@ -383,28 +373,40 @@ def main():
             print "#####################################################################################"
 
 
-    #   AdaBoost
+############################################################
+##                        AdaBoost                        ##
+############################################################
         elif opts.model == 'ADABOOST':
-            be = [ DecisionTreeClassifier() ]
-            #be = [SVC(probability=True)]
-            #be = [SGDClassifier(loss='modified_huber')]
-            ne_list = []
-            if( opts.n_estimators == None ):
+            if( opts.base_estimator == None or opts.base_estimator == 'DT' ) :
+                be = [ DecisionTreeClassifier() ]
+            elif( opts.base_estimator == 'SVM' ):
+                be = [ SVC(probability=True) ]
+            elif( opts.base_estimator == 'SGD' ):
+                be = [ SGDClassifier(loss='modified_huber'), SGDClassifier(loss='log') ]
+            else:
+                print "Unkinown base estimator %s !" %opts.base_estimator
+                traceback.print_stack()
+                sys.exit(1)
+            
+            if( opts.n_estimators != None ):
+                ne_list = parse_grid(opts.n_estimators, 0)
+            else:
+                # default = {50, 100, 150, 200, 250, 300}
+                ne_list = []
                 for i in range(5, 31, 5):
                     ne_list.append( 10*i )
-            else:
-                ne_list = parseGrid(opts.n_estimators, 0, 10)
         
-            lr_list = []
             if( opts.learning_rate != None ):
-                lr_list.append(opts.learning_rate)
+                lr_list = parse_grid(opts.learning_rate, 0, float)
             else:
-                if( opts.log2_lr == None ):
-                    for i in range(-2, 2):
-                        lr_list.append( 2**i )
+                if( opts.log2_lr != None ):
+                    lr_list = parse_grid(opts.log2_lr, 2)
                 else:
-                    lr_list = parseGrid(opts.log2_lr, 2, 1)
-
+                    # default = {0.25, 0.5, 1, 2}
+                    lr_list = []
+                    for i in range(-2, 3):
+                        lr_list.append( 2**i )
+            
             arg_list = list( ParameterGrid( {'base_estimator': be, 'n_estimators': ne_list, 'learning_rate': lr_list} ) )
             (acc_max, arg_best) = parallel_cross_validation(AdaBoostClassifier, 'AdaBoost', arg_list, x_train, y_train, opts.fold, opts.thread)
             
@@ -413,26 +415,29 @@ def main():
             print "#####################################################################################"
 
 
-    #   GradientBoosting
+############################################################
+##                    GradientBoost                       ##
+############################################################
         elif opts.model == 'GB':
-            ne_list = []
-            if( opts.n_estimators == None ):
-                for i in range(2, 16, 2):
-                    ne_list.append( 10*i )
-            else:
-                ne_list = parseGrid(opts.n_estimators, 0, 10)
-        
-            lr_list = []
-            if( opts.learning_rate != None ):
-                lr_list.append(opts.learning_rate)
-            else:
-                if( opts.log2_lr == None ):
-                    for i in range(-2, 2):
-                        lr_list.append( 2**i )
-                else:
-                    lr_list = parseGrid(opts.log2_lr, 2, 1)
 
-            arg_list = []
+            if( opts.n_estimators != None ):
+                ne_list = parse_grid(opts.n_estimators, 0)
+            else:
+                # default = {50, 100, 150, 200, 250, 300}
+                ne_list = []
+                for i in range(5, 31, 5):
+                    ne_list.append( 10*i )
+        
+            if( opts.learning_rate != None ):
+                lr_list = parse_grid(opts.learning_rate, 0, float)
+            else:
+                if( opts.log2_lr != None ):
+                    lr_list = parse_grid(opts.log2_lr, 2)
+                else:
+                    # default = {0.25, 0.5, 1, 2}
+                    lr_list = []
+                    for i in range(-2, 3):
+                        lr_list.append( 2**i )
 
             arg_list = list( ParameterGrid( {'n_estimators': ne_list, 'learning_rate': lr_list} ) )
             (acc_max, arg_best) = parallel_cross_validation(GradientBoostingClassifier, 'GradientBoosting', arg_list, x_train, y_train, opts.fold, opts.thread)
@@ -441,15 +446,18 @@ def main():
             print "max_acc = %f --- n_estimators = %d, learning_rate = %f" %(acc_max, arg_best['n_estimators'], arg_best['learning_rate'])
             print "#####################################################################################"
 
-    #   KNN
+
+############################################################
+##                          KNN                           ##
+############################################################
         elif opts.model == 'KNN':
-            
+            ################## TODO 
             nn_list = []
-            if( opts.n_neighbors == None ):
+            if( opts.n_neighbors != None ):
+                nn_list = parse_grid(opts.n_neighbors, 0)
                 for i in range(5):
                     nn_list.append(5 + 10 * i)
             else:
-                nn_list = parseGrid(opts.n_neighbors, 0, 10)
             
             p_list = []
             if( opts.degree == None ):
@@ -545,7 +553,9 @@ def main():
             print "max_acc = %f " %(acc)
 
         else:
-            sys.stderr.write('Error: invalid model ' + opts.model + '\n')
+            sys.stderr.write('Error: invalid model %s\n' %opts.model)
+            traceback.print_stack()
+            sys.exit(1)
 
 
 
