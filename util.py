@@ -16,9 +16,9 @@ def load_parser():
     parser.add_argument('-m'    , dest='model'         , required=True  , help='Specify the model name (choices: ' + ', '.join(models) + ')')
     parser.add_argument('-n'    , dest='normalized'    , type=int       , help='Normalization method [1: [-1, 1], 2:[0, 1], 3: standard normalization]')
     parser.add_argument('-k'    , dest='kernel'        , default="rbf"  , help='kernel for SVC (choices: ' + ', '.join(kernels) + ') [default = rbf]')
-    parser.add_argument('-c'    , dest='C'             , type=float     , help='C for SVC, linearSVC and logistic regression [default = grid search]')
-    parser.add_argument('-g'    , dest='gamma'         , type=float     , help='gamma for rbf, poly, and sigmoid kernel SVC [default = grid search]')
-    parser.add_argument('-r'    , dest='coef0'         , type=float     , help='coef0 for poly and sigmoid kernel SVC; reg for QDA [default = grid search]')
+    parser.add_argument('-c'    , dest='C'                              , help='C for SVC, linearSVC and logistic regression [default = grid search]')
+    parser.add_argument('-g'    , dest='gamma'                          , help='gamma for rbf, poly, and sigmoid kernel SVC [default = grid search]')
+    parser.add_argument('-r'    , dest='coef0'                          , help='coef0 for poly and sigmoid kernel SVC; reg for QDA [default = grid search]')
     parser.add_argument('-d'    , dest='degree'                         , help='degree for polynomial kernel SVC and KNN distance metric [default = grid search]')
     parser.add_argument('-ne'   , dest='n_estimators'                   , help='number of tree/estimators in RandomForest/Adaboost [default = grid search]')
     parser.add_argument('-nn'   , dest='n_neighbors'                    , help='number of neighbors in KNN [default = grid search]')
@@ -53,12 +53,13 @@ def check_options(opts):
 
 def load_scaler(scaler_fileName, X, method=1):
     
-    # load scaler if existed
     try:
+        # load scaler if existed
         with open(scaler_fileName, 'r') as iFile:
             print "Loading " + scaler_fileName + " ..."
             scaler = load(iFile)
     except:
+        # build new scaler
         print "Scalar file is not exist, compute scaler and dump %s ..." %scaler_fileName
         if( method == 1 ):
             print "Normalizeing to [-1, 1] ..."

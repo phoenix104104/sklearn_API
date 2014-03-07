@@ -15,7 +15,7 @@ from sklearn.datasets import load_svmlight_file, dump_svmlight_file
 from sklearn.cross_validation import KFold
 from sklearn.grid_search import ParameterGrid
 from pickle import dump, load
-from ml_final_util import LoadParser, LoadScaler, CheckOpts
+from util import load_parser, load_scaler, check_options
 from multiprocessing import Pool
 import numpy as np
 
@@ -63,9 +63,9 @@ def cross_validation( (Classifier, clf_name, arg, X, y, fold) ):
     print 'acc = %f' %acc
     return (acc, arg)
 
-def parseGrid(grid_str, base=0, default_step=1):
-
-    r = re.split('[\{\}:]', grid_str)
+def parse_grid(grid_str, base=0, default_step=1, param_type=int):
+    
+    r = re.split('[:]', grid_str)
     s = filter(None, r)
     
     p_list = []
@@ -74,7 +74,7 @@ def parseGrid(grid_str, base=0, default_step=1):
         sys.exit(1)
     elif( len(s) == 1 ):
         if( base == 0 ):
-            p_list.append( int(s[0]) )
+            p_list.append( param_type(s[0]) )
         else:
             p_list.append( base**int(s[0]) )
     else: 
@@ -95,7 +95,7 @@ def parseGrid(grid_str, base=0, default_step=1):
 
 def main():
     
-    parser = LoadParser()
+    parser = load_parser()
     parser.add_argument('-f'        , dest='fold'  , type=int, default=3, help='number of fold in cross_validation [default = 3]')
     parser.add_argument('-th'       , dest='thread', type=int, default=8, help='Number of thread to run in parallel [default = 8]')
     parser.add_argument('-log2c'    , dest='log2_C'                     , help='Grid search {begin:end:step} for log2_C [default = {0:7} for SVM, {-2:4} for LR]')
@@ -103,21 +103,21 @@ def main():
     parser.add_argument('-log2r'    , dest='log2_coef0'                 , help='Grid search {begin:end:step} for log2_coef0 [default = {-2:3:2} for SVM]')
     parser.add_argument('-log2lr'   , dest='log2_lr'                    , help='Grid search {begin:end:step} for log2_learning_rate [default = {-2:3:2}]')
     parser.add_argument('-log2a'    , dest='log2_alpha'                 , help='Grid search {begin:end:step} for log2_alpha [default = {-3:4:1}]')
-
     opts = parser.parse_args(sys.argv[1:])  
-    opts.model = opts.model.upper()
 
     # pre-check options before loading data
-    CheckOpts(opts) 
-
+    opts.model  = opts.model.upper()
+    opts.kernel = opts.kernel.lower()
+    check_options(opts) 
+    
     # Loading training data
     print "Loading %s ..." %opts.train_filename
     x_train, y_train = load_svmlight_file(opts.train_filename)
     x_train = x_train.todense()
     (N, D) = x_train.shape
     print "training data dimension = (%d, %d)" %(N, D)
-
-
+    
+    # feature normalization
     if( opts.normalized ):      
         if( opts.normalized == 1 ):
             scaler_filename = opts.train_filename + '.scaler-11.pkl'
@@ -131,18 +131,17 @@ def main():
             traceback.exc()
             sys.exit(1)
 
-        scaler = LoadScaler(scaler_filename, x_train, opts.normalized)
+        scaler = load_scaler(scaler_filename, x_train, opts.normalized)
         x_train = scaler.transform(x_train)
 
+    
+    # dimension grid search
     if( opts.dim == None ):
         dim_list = [D]
     else:
-        dim_list = parseGrid(opts.dim, 0, 100)
-
-    print dim_list
+        dim_list = parse_grid(opts.dim, 0, 100)
     
     x_train_all = x_train
-
     for dim in dim_list:
         if( dim > D ):
             print "Warning! Select dimension (%d) >= max data dimension (%d), use original dimension." %(dim, D)
@@ -152,32 +151,38 @@ def main():
             print "Using first %d feature ..." %(dim)
 
 
-        # Train and predict
-        print "Cross Validation..."
-        
+        # Training and Validation
+
         if opts.model == 'SVM':
+            
+            # parameter C
+            if( opts.C != None ):
+                c_list = parse_grid(opts.C, 0, 1, float)
+            else:
+                if( opts.log2_C != None ):
+                    c_list = parse_grid(opts.log2_C, 2, 1) # base = 2, step = 1
+                else:
+                    # default = {1, 2, 4, 8, 16, 32, 64, 128}
+                    c_list = []
+                    for i in range(0, 8):
+                        c_list.append( 2**i )
+            
+            # parameter gamma
+            if( opts.gamma != None ):
+                gamma_list = parse_grid(opts.gamma, 0, 1, float)
+            else:
+                if( opts.log2_gamma != None ):
+                    gamma_list = parse_grid(opts.log2_gamma, 2, 2) # base = 2, step = 2
+                else:
+                    # default = {0.0625, 0.25, 1, 4}
+                    gamma_list = []
+                    for i in range(-4, 5, 2):
+                        gamma_list.append( 2**i )
 
-        #   RBF-SVM
+############################################################
+##                        RBF-SVM                         ##
+############################################################
             if( opts.kernel == 'rbf' ):
-                c_list = []
-                if( opts.C != None ):
-                    c_list.append(opts.C)
-                else:
-                    if( opts.log2_C == None ): # default grid search
-                        for i in range(0, 7):
-                            c_list.append( 2**i )
-                    else:
-                        c_list = parseGrid(opts.log2_C, 2, 1) # base = 2, default step = 1
-
-                gamma_list = []
-                if( opts.gamma != None ):
-                    gamma_list.append( opts.gamma )
-                else:
-                    if( opts.log2_gamma == None ):
-                        for i in range(-4, 5, 2):
-                            gamma_list.append( 2**i )
-                    else:
-                        gamma_list = parseGrid(opts.log2_gamma, 2, 2)
                 
                 arg_list = list( ParameterGrid( {'kernel': [opts.kernel], 'gamma': gamma_list, 'C': c_list} ) )
 
@@ -187,44 +192,29 @@ def main():
                 print "max_acc = %f --- C = %f, gamma = %f" %(acc_max, arg_best['C'], arg_best['gamma'])
                 print "#####################################################################################"
 
-        # polynomial-SVM
+############################################################
+##                    polynomial-SVM                      ##
+############################################################
             elif( opts.kernel == 'poly' ):
-                c_list = []
-                if( opts.C != None ):
-                    c_list.append(opts.C)
-                else:
-                    if( opts.log2_C == None ): # default grid search
-                        for i in range(0, 7):
-                            c_list.append( 2**i )
-                    else:
-                        c_list = parseGrid(opts.log2_C, 2, 1) # base = 2, default step = 1
 
-                gamma_list = []
-                if( opts.gamma != None ):
-                    gamma_list.append( opts.gamma )
-                else:
-                    if( opts.log2_gamma == None ):
-                        for i in range(-2, 3, 2):
-                            gamma_list.append( 2**i )
-                    else:
-                        gamma_list = parseGrid(opts.log2_gamma, 2, 2)
-                 
-                coef0_list = []
                 if( opts.coef0 != None ):
-                    coef0_list.append( opts.coef0 )
+                    coef0_list = parse_grid(opts.coef0, 0, 1, float)
                 else:
-                    if( opts.log2_coef0 == None ):
-                        for i in range(-2, 3, 2):
-                            coef0_list.append( 2**i )
+                    if( opts.log2_coef0 != None ):
+                        coef0_list = parse_grid(opts.log2_coef0, 2, 1) # base = 2, step = 1
                     else:
-                        coef0_list.append(opts.log2_coef0, 2, 2)
+                        # default = {0.0625, 0.25, 1, 4}
+                        coef0_list = []
+                        for i in range(-4, 5, 2):
+                            coef0_list.append( 2**i )
                 
-                degree_list = []
-                if( opts.degree == None ):
+                if( opts.degree != None ):
+                    degree_list = parse_grid(opts.degree, 0, 1)
+                else:
+                    # default = {1, 2, 3, 4}
+                    degree_list = []
                     for i in range(1, 5):
                         degree_list.append(i)
-                else:
-                    degree_list = parseGrid(opts.degree, 0, 1)
                 
                 arg_list = list( ParameterGrid( {'kernel':[opts.kernel], 'degree': degree_list, 'coef0': coef0_list, 'gamma': gamma_list, 'C': c_list} ) )
                 
@@ -234,48 +224,30 @@ def main():
                 print "max_acc = %f --- C = %f, coef0 = %f, gamma = %f, degree = %d" %(acc_max, arg_best['C'], arg_best['coef0'], arg_best['gamma'], arg_best['degree'])
                 print "#####################################################################################"
         
-        # sigmoid-SVM
+############################################################
+##                    sigmoid-SVM                         ##
+############################################################
             elif( opts.kernel == 'sigmoid' ):
-                c_list = []
-                if( opts.C != None ):
-                    c_list.append(opts.C)
-                else:
-                    if( opts.log2_C == None ): # default grid search
-                        for i in range(0, 7):
-                            c_list.append( 2**i )
-                    else:
-                        c_list = parseGrid(opts.log2_C, 2, 1) # base = 2, default step = 1
-
-                gamma_list = []
-                if( opts.gamma != None ):
-                    gamma_list.append( opts.gamma )
-                else:
-                    if( opts.log2_gamma == None ):
-                        for i in range(-2, 3, 2):
-                            gamma_list.append( 2**i )
-                    else:
-                        gamma_list = parseGrid(opts.log2_gamma, 2, 2)
                  
-                coef0_list = []
                 if( opts.coef0 != None ):
-                    coef0_list.append( opts.coef0 )
+                    coef0_list = parse_grid(opts.coef0, 0, 1, float)
                 else:
-                    if( opts.log2_coef0 == None ):
-                        for i in range(-2, 3, 2):
-                            coef0_list.append( 2**i )
+                    if( opts.log2_coef0 != None ):
+                        coef0_list = parse_grid(opts.log2_coef0, 2, 2) # base = 1, step = 1
                     else:
-                        coef0_list.append(opts.log2_coef0, 2, 2)
-                
+                        # default = {0.0625, 0.25, 1, 4}
+                        coef0_list = []
+                        for i in range(-4, 5, 2):
+                            coef0_list.append( 2**i )
                 
                 arg_list = list( ParameterGrid( {'kernel': [opts.kernel], 'coef0': coef0_list, 'gamma': gamma_list, 'C': c_list } ) )
                 
                 (acc_max, arg_best) = parallel_cross_validation(SVC, 'SVM', arg_list, x_train, y_train, opts.fold, opts.thread)
-                
+                    
                 print "#####################################################################################"
                 print "max_acc = %f --- C = %f, coef0 = %f, gamma = %f" %(acc_max, arg_best['C'], arg_best['coef0'], arg_best['gamma'])
                 print "#####################################################################################"
         
-
             else:
                 print "Error! Unknown kernel %s!" %opts.kernel
                 traceback.print_exc()
