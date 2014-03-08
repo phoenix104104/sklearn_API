@@ -385,15 +385,15 @@ def main():
             if( opts.base_estimator == None ):
                 be = [ be_DT, be_SVC, be_SGD_huber, be_SGD_log ] 
             elif( opts.base_estimator == 'DT' ):
-                be = [ DecisionTreeClassifier() ]
+                be = [ be_DT ]
             elif( opts.base_estimator == 'SVM' ):
-                be = [ SVC(probability=True) ]
+                be = [ be_SVC ]
             elif( opts.base_estimator == 'SGD' ):
-                be = [ SGDClassifier(loss='modified_huber') , SGDClassifier(loss='log') ]
+                be = [ be_SGD_huber , be_SGD_log ]
             elif( opts.base_estimator == 'SGD-HUBER' ):
-                be = [ SGDClassifier(loss='modified_huber') ]
+                be = [ be_SGD_huber ]
             elif( opts.base_estimator == 'SGD-LOG' ):
-                be = [ SGDClassifier(loss='log') ]
+                be = [ be_SGD_log ]
             else:
                 print "Unkinown base estimator %s !" %opts.base_estimator
                 traceback.print_stack()
