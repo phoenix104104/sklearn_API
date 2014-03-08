@@ -9,10 +9,10 @@ kernels = ('linear', 'poly', 'rbf', 'sigmoid')
 base_estimators = ('DT', 'SVM', 'SGD', 'SGD-HUBER', 'SGD-LOG')
 ########################################################################
 
-def load_parser():
+def load_parser(program_description=None):
     
     # Set up parameters
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description=program_description)
     parser.add_argument('-i'    , dest='train_filename', required=True  , help='Specify the input train file')
     parser.add_argument('-m'    , dest='model'         , required=True  , help='Specify the model name (choices: ' + ', '.join(models) + ')')
     parser.add_argument('-n'    , dest='normalized'    , type=int       , help='Normalization method [1: [-1, 1], 2:[0, 1], 3: standard normalization]')

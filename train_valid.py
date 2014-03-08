@@ -99,7 +99,8 @@ def parse_grid(grid_str, base=0, param_type=int):
 
 def main():
     
-    parser = load_parser()
+    description='An integrated sklearn API to run N-fold training and cross validation with multi-thread.Simple example: ./train_valid.py -i INPUT -m svm'
+    parser = load_parser(description)
     parser.add_argument('-f' , '--fold'  , dest='fold'  , type=int, default=3, help='Number of fold in cross_validation [default = 3]')
     parser.add_argument('-th', '--thread', dest='thread', type=int, default=8, help='Number of thread to run in parallel [default = 8]')
     parser.add_argument('-log2c'         , dest='log2_C'                     , help='Grid search {begin:end:step} for log2(C)')

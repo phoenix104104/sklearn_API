@@ -46,8 +46,9 @@ def predict(clf, X, y, output_filename, prob_filename=None):
 
 
 def main():
-
-    parser = load_parser()
+    
+    description = "An integrated sklearn API to run training and prediction. Simple example: ./train_pred.py -i TRAIN_INPUT -t TEST_INPUT -m svm -o PREDICT"
+    parser = load_parser(description)
     parser.add_argument('-t' , '--test'         , dest='test_filename' , required=True  , help='Specify the test file path')
     parser.add_argument('-o' , '--output'       , dest='output_filename'                , help='Specify the output predict file path [optional]')
     parser.add_argument('-om', '--output-model' , dest='model_filename'                 , help='Specify the output model file path [optional]')
