@@ -47,3 +47,4 @@ Sample 100 training data and 50 testing data from a list:
 ```
   ./sample_list.py -i INPUT_LIST -n 100 500 -o TRAIN_LIST TEST_LIST
 ```
+
